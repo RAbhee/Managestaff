@@ -649,11 +649,12 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
 
     setState(() {
       if (pickedFile != null) {
-        _image = pickedFile.path; // Store image path for mobile, URL for web
+        _image = File(pickedFile.path); // Store image path for mobile, URL for web
       } else {
         print('No image selected.');
       }
     }
     );
     }
+
   }
