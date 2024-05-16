@@ -1,0 +1,105 @@
+{
+  "project_info": {
+    "project_number": "65822503237",
+    "project_id": "clinikx-b1b1e",
+    "storage_bucket": "clinikx-b1b1e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:65822503237:android:42ae7ce69bd2f9e4e70e2c",
+        "android_client_info": {
+          "package_name": "com.example.clinikx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKJhlniLkcFBxyLbqKMRBFkMput3VLL2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:65822503237:android:89785f472c445e20e70e2c",
+        "android_client_info": {
+          "package_name": "com.example.clinikx_dashboard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKJhlniLkcFBxyLbqKMRBFkMput3VLL2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:65822503237:android:aed99fbf7fe711f9e70e2c",
+        "android_client_info": {
+          "package_name": "com.example.clinikx_final"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKJhlniLkcFBxyLbqKMRBFkMput3VLL2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:65822503237:android:22a3039503b11d86e70e2c",
+        "android_client_info": {
+          "package_name": "com.example.loginpage"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKJhlniLkcFBxyLbqKMRBFkMput3VLL2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:65822503237:android:8dcc45a5465da6b1e70e2c",
+        "android_client_info": {
+          "package_name": "com.example.manage_staff"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKJhlniLkcFBxyLbqKMRBFkMput3VLL2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,110 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class StaffPopup extends StatelessWidget {
+  final String image;
+  final String name;
+  final String designation;
+  final String specialization;
+  final String experience;
+  final String mobile;
+  final String qualification;
+  final String about;
+
+  const Staff   Popup({
+    Key? key,
+    required this.image,
+    required this.name,
+    required this.designation,
+    required this.specialization,
+    required this.experience,
+    required this.mobile,
+    required this.qualification,
+    required this.about,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      elevation: 0.0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.greenAccent, Colors.purpleAccent],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        constraints: BoxConstraints(maxWidth: 400),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Staff Details',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(height: 16),
+              Image.network(
+                image,
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Name: $name',
+                style: TextStyle(color: Colors.white),
+              ),
+              Text(
+                'Designation: $designation',
+                style: TextStyle(color: Colors.white),
+              ),
+              Text(
+                'Specialization: $specialization',
+                style: TextStyle(color: Colors.white),
+              ),
+              Text(
+                'Experience: $experience',
+                style: TextStyle(color: Colors.white),
+              ),
+              Text(
+                'Mobile: $mobile',
+                style: TextStyle(color: Colors.white),
+              ),
+              Text(
+                'Qualification: $qualification',
+                style: TextStyle(color: Colors.white),
+              ),
+              Text(
+                'About: $about',
+                style: TextStyle(color: Colors.white),
+              ),
+              SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the popup
+                  },
+                  child: Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
