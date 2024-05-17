@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 
+
 class StaffPopup extends StatefulWidget {
   final String image;
   final String name;
@@ -32,6 +33,7 @@ class StaffPopup extends StatefulWidget {
 
 class _StaffPopupState extends State<StaffPopup> {
   late TextEditingController nameController;
+  late TextEditingController designationController;
   late TextEditingController specializationController;
   late TextEditingController experienceController;
   late TextEditingController mobileController;
@@ -39,20 +41,22 @@ class _StaffPopupState extends State<StaffPopup> {
   late TextEditingController statusController;
   late TextEditingController imageController;
 
-  late bool isDoctorSelected;
-  late bool isAdminSelected;
-  late bool isReceptionistSelected;
+  late String _displayedImage; // Track the displayed image URL or path
+  bool _isDefaultImage = true; // Track whether the default image is displayed
 
-  late File _imageFile;
   bool isEditing = false;
 
   final ImagePicker _picker = ImagePicker();
+  late File _imageFile; // Updated image file variable
+// Updated image file variable
 
   @override
   void initState() {
     super.initState();
+    _displayedImage = widget.image.isNotEmpty ? widget.image : 'assets/placeholder_image.jpg';
     _imageFile = File('');
     nameController = TextEditingController(text: widget.name);
+    designationController = TextEditingController(text: widget.designation);
     specializationController = TextEditingController(text: widget.specialization);
     experienceController = TextEditingController(text: widget.experience);
     mobileController = TextEditingController(text: widget.mobile);
@@ -60,14 +64,19 @@ class _StaffPopupState extends State<StaffPopup> {
     statusController = TextEditingController(text: widget.status);
     imageController = TextEditingController(text: widget.image);
 
-    isDoctorSelected = widget.designation == 'Doctor';
-    isAdminSelected = widget.designation == 'Admin';
-    isReceptionistSelected = widget.designation == 'Receptionist';
+    // Load image if widget.image is not empty
+    if (widget.image.isNotEmpty) {
+      setState(() {
+        _imageFile = File(widget.image);
+      });
+    }
+
   }
 
   @override
   void dispose() {
     nameController.dispose();
+    designationController.dispose();
     specializationController.dispose();
     experienceController.dispose();
     mobileController.dispose();
@@ -232,54 +241,15 @@ class _StaffPopupState extends State<StaffPopup> {
                         ),
                         SizedBox(height: 15,),
                         TextFormField(
+                          controller: designationController,
                           decoration: InputDecoration(labelText: 'Designation'),
-                        ),
-                        SizedBox(height: 15,),
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: isDoctorSelected,
-                              onChanged: isEditing
-                                  ? (bool? value) {
-                                setState(() {
-                                  isDoctorSelected = value!;
-
-                                });
-                              }
-                                  : null, // Disable if not editing
-                            ),
-                            Text('Doctor'),
-                            SizedBox(width: 15),
-                            Checkbox(
-                              value: isAdminSelected,
-                              onChanged: isEditing
-                                  ? (bool? value) {
-                                setState(() {
-                                  isAdminSelected = value!;
-                                });
-                              }
-                                  : null, // Disable if not editing
-                            ),
-                            Text('Admin'),
-                            SizedBox(width: 15),
-                            Checkbox(
-                              value: isReceptionistSelected,
-                              onChanged: isEditing
-                                  ? (bool? value) {
-                                setState(() {
-                                  isReceptionistSelected = value!;
-                                });
-                              }
-                                  : null, // Disable if not editing
-                            ),
-                            Text('Receptionist'),
-                          ],
+                          enabled: isEditing,
                         ),
                         SizedBox(height: 15,),
                         TextFormField(
                           controller: specializationController,
                           decoration: InputDecoration(labelText: 'Specialization'),
-                          enabled: isEditing && !isAdminSelected,
+                          enabled: isEditing && widget.designation != 'Admin',
                         ),
                         SizedBox(height: 15,),
                         TextFormField(
@@ -315,7 +285,7 @@ class _StaffPopupState extends State<StaffPopup> {
                                     String documentId = querySnapshot.docs.first.id; // Retrieve the document ID
                                     updateStaffDetailsByNameAndMobile(widget.name, widget.mobile, {
                                       'name': nameController.text,
-                                      'designation': _getSelectedDesignation(),
+                                      'designation': designationController.text,
                                       'specialization': specializationController.text,
                                       'experience': experienceController.text,
                                       'mobile': mobileController.text,
@@ -364,17 +334,5 @@ class _StaffPopupState extends State<StaffPopup> {
         ),
       ),
     );
-  }
-
-  String _getSelectedDesignation() {
-    if (isDoctorSelected) {
-      return 'Doctor';
-    } else if (isAdminSelected) {
-      return 'Admin';
-    } else if (isReceptionistSelected) {
-      return 'Receptionist';
-    } else {
-      return '';
-    }
   }
 }
