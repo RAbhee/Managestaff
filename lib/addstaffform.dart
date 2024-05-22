@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'Managestaff.dart';
+import 'package:path/path.dart' as path;
 import 'firebase_options.dart';
-
+import 'Managestaff.dart';
 
 class FirestoreDropdownService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,8 +14,7 @@ class FirestoreDropdownService {
   Future<List<String>> getDesignations() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('designation').get();
-      List<String> designations =
-      querySnapshot.docs.map((doc) => doc.get('designation') as String).toList();
+      List<String> designations = querySnapshot.docs.map((doc) => doc.get('designation') as String).toList();
       return designations;
     } catch (e) {
       print('Error fetching designations: $e');
@@ -25,8 +25,7 @@ class FirestoreDropdownService {
   Future<List<String>> getSpecializations() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('Specialisation').get();
-      List<String> specializations =
-      querySnapshot.docs.map((doc) => doc.get('Specialisation') as String).toList();
+      List<String> specializations = querySnapshot.docs.map((doc) => doc.get('Specialisation') as String).toList();
       return specializations;
     } catch (e) {
       print('Error fetching specializations: $e');
@@ -37,6 +36,7 @@ class FirestoreDropdownService {
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   Future<void> addStaffDetails({
     required String name,
@@ -46,11 +46,12 @@ class FirestoreService {
     required String mobile,
     required String qualification,
     required String about,
-    required dynamic image,
+    required String image,
     required String createdBy,
   }) async {
     try {
       DateTime createdAt = DateTime.now();
+
       await _firestore.collection('staffs').add({
         'name': name,
         'designation': designation,
@@ -69,6 +70,24 @@ class FirestoreService {
       throw Exception('Error adding staff details.');
     }
   }
+
+  Future<String> uploadImage(dynamic image) async {
+    try {
+      String fileName = path.basename(image.path);
+      final ref = _storage.ref().child('images/$fileName');
+      UploadTask uploadTask;
+      if (kIsWeb) {
+        uploadTask = ref.putData(await image.readAsBytes());
+      } else {
+        uploadTask = ref.putFile(File(image.path));
+      }
+      await uploadTask.whenComplete(() => null);
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Error uploading image: $e');
+      throw Exception('Error uploading image.');
+    }
+  }
 }
 
 class StaffDetailsForm extends StatefulWidget {
@@ -77,17 +96,16 @@ class StaffDetailsForm extends StatefulWidget {
 }
 
 class _StaffDetailsFormState extends State<StaffDetailsForm> {
-  TextEditingController nameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController experienceController = TextEditingController();
+  final TextEditingController mobileController = TextEditingController();
+  final TextEditingController qualificationController = TextEditingController();
+  final TextEditingController aboutController = TextEditingController();
   String? designationValue;
   String? specializationValue;
-  TextEditingController experienceController = TextEditingController();
-  TextEditingController mobileController = TextEditingController();
-  TextEditingController qualificationController = TextEditingController();
-  TextEditingController aboutController = TextEditingController();
-
   dynamic _image;
-  final picker = ImagePicker();
-  GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late ImagePicker picker;
   late FirestoreDropdownService _dropdownService;
   List<String> designations = [];
   List<String> specializations = [];
@@ -96,6 +114,7 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
   @override
   void initState() {
     super.initState();
+    picker = ImagePicker();
     _dropdownService = FirestoreDropdownService();
     fetchDataForDropdowns();
   }
@@ -106,48 +125,22 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
     setState(() {});
   }
 
-  Widget _buildDropdownField(
-      String? value,
-      String label,
-      List<String> options, {
-        String? Function(String?)? validator,
-        bool isEnabled = true,
-        void Function(String?)? onChanged,
-      }) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: DropdownButtonFormField<String>(
-        value: value,
-        onChanged: isEnabled ? onChanged : null,
-        items: options.map((option) {
-          return DropdownMenuItem<String>(
-            value: option,
-            child: Text(option),
-          );
-        }).toList(),
-        decoration: InputDecoration(
-          labelText: label,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        ),
-        validator: validator,
-        onTap: () {},
-      ),
-    );
+  Future<void> getImage() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    setState(() {
+      _image = pickedFile;
+    });
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Staff Details Form'),
         actions: [
           IconButton(
-            icon: Icon(Icons.manage_accounts), // Icon for "Manage Staff"
+            icon: Icon(Icons.manage_accounts),
             onPressed: () {
-              // Navigate to the StaffTable screen
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => StaffTable()),
@@ -157,12 +150,8 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
         ],
       ),
       body: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          if (constraints.maxWidth > 600) {
-            return _buildDesktopView();
-          } else {
-            return _buildMobileView();
-          }
+        builder: (context, constraints) {
+          return constraints.maxWidth > 600 ? _buildDesktopView() : _buildMobileView();
         },
       ),
     );
@@ -171,7 +160,7 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
   Widget _buildMobileView() {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(15.0),
         child: Form(
           key: _formKey,
           child: Column(
@@ -188,172 +177,54 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
                   ),
                   child: Center(
                     child: _image == null
-                        ? Icon(Icons.add_photo_alternate_outlined,
-                        color: Colors.purple, size: 100)
-                        : Image.network(
-                      _image,
-                      fit: BoxFit.cover,
-                    ),
+                        ? Icon(Icons.add_photo_alternate_outlined, color: Colors.purple, size: 100)
+                        : (kIsWeb ? Image.network(_image.path, fit: BoxFit.cover) : Image.file(File(_image.path), fit: BoxFit.cover)),
                   ),
                 ),
               ),
               SizedBox(height: 20),
-              _buildTextField(
-                nameController,
-                'Enter Name',
-                validator: validateName,
+              _buildTextField(nameController, 'Enter Name', validateName),
+              SizedBox(height: 10),
+              _buildTextField(experienceController, 'Enter Experience', validateExperience),
+              SizedBox(height: 10),
+              _buildTextField(mobileController, 'Enter Mobile Number', validateMobile),
+              SizedBox(height: 10),
+              _buildDropdownField(
+                designationValue,
+                'Designation',
+                designations,
+                    (newValue) {
+                  setState(() {
+                    designationValue = newValue;
+                    if (newValue == 'Doctor') {
+                      specializationEnabled = true;
+                    } else {
+                      specializationEnabled = false;
+                      specializationValue = null;
+                    }
+                  });
+                },
+                validateDesignation,
               ),
               SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      experienceController,
-                      'Enter Experience',
-                      validator: validateExperience,
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: _buildTextField(
-                      mobileController,
-                      'Enter Mobile Number',
-                      validator: validateMobile,
-                    ),
-                  ),
-                ],
-              ),
+              if (specializationEnabled)
+                _buildDropdownField(
+                  specializationValue,
+                  'Specialization',
+                  specializations,
+                      (newValue) {
+                    setState(() {
+                      specializationValue = newValue;
+                    });
+                  },
+                  validateSpecialization,
+                ),
               SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDropdownField(
-                      designationValue,
-                      'Designation',
-                      designations,
-                      onChanged: (newValue) {
-                        setState(() {
-                          designationValue = newValue;
-                          if (newValue == 'Doctor') {
-                            specializationEnabled = true;
-                          } else {
-                            specializationEnabled = false;
-                            specializationValue = null;
-                          }
-                        });
-                      },
-                      validator: validateDesignation,
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  if (specializationEnabled)
-                    Expanded(
-                      child: _buildDropdownField(
-                        specializationValue,
-                        'Specialization',
-                        specializations,
-                        onChanged: (newValue) {
-                          setState(() {
-                            specializationValue = newValue;
-                          });
-                        },
-                        validator: validateSpecialization,
-                      ),
-                    ),
-                ],
-              ),
+              _buildTextField(qualificationController, 'Enter Qualification', validateQualification),
               SizedBox(height: 10),
-              _buildTextField(
-                qualificationController,
-                'Enter Qualification',
-                validator: validateQualification,
-              ),
-              SizedBox(height: 10),
-              _buildTextField(
-                aboutController,
-                'About Doctor',
-                validator: validateAbout,
-              ),
+              _buildTextField(aboutController, 'About Doctor', validateAbout),
               SizedBox(height: 20),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate()) {
-                        try {
-                          FirestoreService _firestoreService = FirestoreService();
-                          await _firestoreService.addStaffDetails(
-                            name: nameController.text,
-                            designation: designationValue ?? '',
-                            specialization: specializationValue ?? '',
-                            experience: experienceController.text,
-                            mobile: mobileController.text,
-                            qualification: qualificationController.text,
-                            about: aboutController.text,
-                            image: _image,
-                            createdBy: 'UserXYZ',
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Data saved successfully'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                          _formKey.currentState?.reset();
-                          nameController.clear();
-                          experienceController.clear();
-                          mobileController.clear();
-                          qualificationController.clear();
-                          aboutController.clear();
-                          setState(() {
-                            designationValue = null;
-                            specializationValue = null;
-                            _image = null;
-                          });
-                        } catch (e) {
-                          print('Error submitting form: $e');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error submitting form'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                    ),
-                    child: Text(
-                      'Submit',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      _formKey.currentState?.reset();
-                      nameController.clear();
-                      experienceController.clear();
-                      mobileController.clear();
-                      qualificationController.clear();
-                      aboutController.clear();
-                      setState(() {
-                        designationValue = null;
-                        specializationValue = null;
-                        _image = null;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
+              _buildFormButtons(),
             ],
           ),
         ),
@@ -379,12 +250,8 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
                 ),
                 child: Center(
                   child: _image == null
-                      ? Icon(Icons.add_photo_alternate_outlined,
-                      color: Colors.purple, size: 100)
-                      : Image.network(
-                    _image,
-                    fit: BoxFit.cover,
-                  ),
+                      ? Icon(Icons.add_photo_alternate_outlined, color: Colors.purple, size: 100)
+                      : (kIsWeb ? Image.network(_image.path, fit: BoxFit.cover) : Image.file(File(_image.path), fit: BoxFit.cover)),
                 ),
               ),
             ),
@@ -395,23 +262,11 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildTextField(
-                      nameController,
-                      'Enter Name',
-                      validator: validateName,
-                    ),
+                    _buildTextField(nameController, 'Enter Name', validateName),
                     SizedBox(height: 10),
-                    _buildTextField(
-                      experienceController,
-                      'Enter Experience',
-                      validator: validateExperience,
-                    ),
+                    _buildTextField(experienceController, 'Enter Experience', validateExperience),
                     SizedBox(height: 10),
-                    _buildTextField(
-                      mobileController,
-                      'Enter Mobile Number',
-                      validator: validateMobile,
-                    ),
+                    _buildTextField(mobileController, 'Enter Mobile Number', validateMobile),
                     SizedBox(height: 10),
                     Row(
                       children: [
@@ -420,7 +275,7 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
                             designationValue,
                             'Designation',
                             designations,
-                            onChanged: (newValue) {
+                                (newValue) {
                               setState(() {
                                 designationValue = newValue;
                                 if (newValue == 'Doctor') {
@@ -431,7 +286,7 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
                                 }
                               });
                             },
-                            validator: validateDesignation,
+                            validateDesignation,
                           ),
                         ),
                         SizedBox(width: 10),
@@ -441,108 +296,22 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
                               specializationValue,
                               'Specialization',
                               specializations,
-                              onChanged: (newValue) {
+                                  (newValue) {
                                 setState(() {
                                   specializationValue = newValue;
                                 });
                               },
-                              validator: validateSpecialization,
+                              validateSpecialization,
                             ),
                           ),
                       ],
                     ),
                     SizedBox(height: 10),
-                    _buildTextField(
-                      qualificationController,
-                      'Enter Qualification',
-                      validator: validateQualification,
-                    ),
+                    _buildTextField(qualificationController, 'Enter Qualification', validateQualification),
                     SizedBox(height: 10),
-                    _buildTextField(
-                      aboutController,
-                      'About Doctor',
-                      validator: validateAbout,
-                    ),
+                    _buildTextField(aboutController, 'About Doctor', validateAbout),
                     SizedBox(height: 20),
-                    Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (_formKey.currentState!.validate()) {
-                              try {
-                                FirestoreService _firestoreService = FirestoreService();
-                                await _firestoreService.addStaffDetails(
-                                  name: nameController.text,
-                                  designation: designationValue ?? '',
-                                  specialization: specializationValue ?? '',
-                                  experience: experienceController.text,
-                                  mobile: mobileController.text,
-                                  qualification: qualificationController.text,
-                                  about: aboutController.text,
-                                  image: _image,
-                                  createdBy: 'UserXYZ',
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Data saved successfully'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                                _formKey.currentState?.reset();
-                                nameController.clear();
-                                experienceController.clear();
-                                mobileController.clear();
-                                qualificationController.clear();
-                                aboutController.clear();
-                                setState(() {
-                                  designationValue = null;
-                                  specializationValue = null;
-                                  _image = null;
-                                });
-                              } catch (e) {
-                                print('Error submitting form: $e');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error submitting form'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple,
-                          ),
-                          child: Text(
-                            'Submit',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            _formKey.currentState?.reset();
-                            nameController.clear();
-                            experienceController.clear();
-                            mobileController.clear();
-                            qualificationController.clear();
-                            aboutController.clear();
-                            setState(() {
-                              designationValue = null;
-                              specializationValue = null;
-                              _image = null;
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildFormButtons(),
                   ],
                 ),
               ),
@@ -553,47 +322,118 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
     );
   }
 
-  Widget _buildTextField(
-      TextEditingController controller,
-      String label, {
-        int maxLines = 1,
-        String? Function(String?)? validator,
-      }) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8.0),
+  Widget _buildTextField(TextEditingController controller, String labelText, FormFieldValidator<String> validator) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: labelText,
+        border: OutlineInputBorder(),
       ),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          errorStyle: TextStyle(fontSize: 12),
-        ),
-        maxLines: maxLines,
-        validator: validator,
-      ),
+      validator: validator,
     );
+  }
+
+  Widget _buildDropdownField(
+      String? value,
+      String hintText,
+      List<String> items,
+      ValueChanged<String?> onChanged,
+      FormFieldValidator<String?> validator,
+      ) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: InputDecoration(
+        labelText: hintText,
+        border: OutlineInputBorder(),
+      ),
+      items: items.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      validator: validator,
+    );
+  }
+
+  Widget _buildFormButtons() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ElevatedButton(
+          onPressed: _submitForm,
+          child: Text('Submit',style:
+          TextStyle(color: Colors.white,fontWeight: FontWeight.w700,fontSize: 15),),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+        ),
+        SizedBox(height: 10),
+        OutlinedButton(
+          onPressed: () {
+            _formKey.currentState!.reset();
+            setState(() {
+              nameController.clear();
+              experienceController.clear();
+              mobileController.clear();
+              qualificationController.clear();
+              aboutController.clear();
+              designationValue = null;
+              specializationValue = null;
+              _image = null;
+            });
+          },
+            child: Text('Reset',style:
+            TextStyle(color: Colors.white,fontWeight: FontWeight.w700,fontSize: 15),),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      if (_image == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select an image.')));
+        return;
+      }
+
+      try {
+        FirestoreService firestoreService = FirestoreService();
+        String imageUrl = await firestoreService.uploadImage(_image);
+
+        await firestoreService.addStaffDetails(
+          name: nameController.text,
+          designation: designationValue!,
+          specialization: specializationValue!,
+          experience: experienceController.text,
+          mobile: mobileController.text,
+          qualification: qualificationController.text,
+          about: aboutController.text,
+          image: imageUrl,
+          createdBy: 'admin',
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Staff details added successfully.')));
+        _formKey.currentState!.reset();
+        setState(() {
+          nameController.clear();
+          experienceController.clear();
+          mobileController.clear();
+          qualificationController.clear();
+          aboutController.clear();
+          designationValue = null;
+          specializationValue = null;
+          _image = null;
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding staff details.')));
+      }
+    }
   }
 
   String? validateName(String? value) {
     if (value == null || value.isEmpty) {
       return 'Please enter a name.';
-    }
-    if (value.length < 4 || value.length > 30) {
-      return 'Name should be between 4 and 30 characters.';
-    }
-    return null;
-  }
-
-  String? validateMobile(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter a mobile number.';
-    }
-    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(value)) {
-      return 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
     }
     return null;
   }
@@ -602,19 +442,12 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
     if (value == null || value.isEmpty) {
       return 'Please enter experience.';
     }
-    int? experienceYears = int.tryParse(value);
-    if (experienceYears == null || experienceYears > 40) {
-      return 'Experience should be a valid number less than or equal to 40.';
-    }
     return null;
   }
 
-  String? validateQualification(String? value) {
+  String? validateMobile(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Please enter qualification.';
-    }
-    if (value.length < 4 || value.length > 30) {
-      return 'Qualification should be between 4 and 30 characters.';
+      return 'Please enter a mobile number.';
     }
     return null;
   }
@@ -633,28 +466,18 @@ class _StaffDetailsFormState extends State<StaffDetailsForm> {
     return null;
   }
 
-  String? validateAbout(String? value) {
+  String? validateQualification(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Please enter about.';
-    }
-    List<String> words = value.trim().split(RegExp(r'\s+'));
-    if (words.length > 30) {
-      return 'About should not exceed 30 words.';
+      return 'Please enter a qualification.';
     }
     return null;
   }
 
-  Future getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    setState(() {
-      if (pickedFile != null) {
-        _image = File(pickedFile.path); // Store image path for mobile, URL for web
-      } else {
-        print('No image selected.');
-      }
+  String? validateAbout(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter information about the doctor.';
     }
-    );
-    }
-
+    return null;
   }
+}
+

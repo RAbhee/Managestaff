@@ -1,9 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
-
 
 class StaffPopup extends StatefulWidget {
   final String image;
@@ -48,7 +48,6 @@ class _StaffPopupState extends State<StaffPopup> {
 
   final ImagePicker _picker = ImagePicker();
   late File _imageFile; // Updated image file variable
-// Updated image file variable
 
   @override
   void initState() {
@@ -70,7 +69,6 @@ class _StaffPopupState extends State<StaffPopup> {
         _imageFile = File(widget.image);
       });
     }
-
   }
 
   @override
@@ -143,8 +141,186 @@ class _StaffPopupState extends State<StaffPopup> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMobileView() {
+    return SingleChildScrollView(
+      child: Material(
+        child: Container(
+          padding: EdgeInsets.all(15.0),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white, Colors.grey.shade50, Colors.white],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(25.0),
+          ),
+          constraints: BoxConstraints(maxWidth: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit Staff Details',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit, size: 25),
+                    onPressed: () {
+                      setState(() {
+                        isEditing = true; // Enable editing
+                      });
+                    },
+                  ),
+                ],
+              ),
+              SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            await _getImage();
+                            _updateImage(widget.name, widget.mobile);
+                          },
+                          child: CircleAvatar(
+                            radius: 60,
+                            backgroundImage: _imageFile != null
+                                ? FileImage(_imageFile)
+                                : widget.image.isNotEmpty
+                                ? NetworkImage(widget.image)
+                                : AssetImage('assets/placeholder_image.jpg') as ImageProvider<Object>,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        TextFormField(
+                          controller: aboutController,
+                          decoration: InputDecoration(labelText: 'About'),
+                          enabled: isEditing,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          widget.about,
+                          style: TextStyle(color: Colors.black, fontSize: 15),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              TextFormField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: 'Name'),
+                enabled: isEditing, // Enable/disable based on editing state
+              ),
+              SizedBox(height: 15),
+              TextFormField(
+                controller: designationController,
+                decoration: InputDecoration(labelText: 'Designation'),
+                enabled: isEditing,
+              ),
+              SizedBox(height: 15),
+              TextFormField(
+                controller: specializationController,
+                decoration: InputDecoration(labelText: 'Specialization'),
+                enabled: isEditing && widget.designation != 'Admin',
+              ),
+              SizedBox(height: 15),
+              TextFormField(
+                controller: experienceController,
+                decoration: InputDecoration(labelText: 'Experience'),
+                enabled: isEditing,
+              ),
+              SizedBox(height: 15),
+              TextFormField(
+                controller: mobileController,
+                decoration: InputDecoration(labelText: 'Mobile'),
+                enabled: isEditing,
+              ),
+              SizedBox(height: 15),
+              TextFormField(
+                controller: statusController,
+                decoration: InputDecoration(labelText: 'Status'),
+                enabled: isEditing,
+              ),
+
+              SizedBox(height: 16),
+              SizedBox(height: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      FirebaseFirestore.instance
+                          .collection('staffs')
+                          .where('name', isEqualTo: widget.name)
+                          .where('mobile', isEqualTo: widget.mobile)
+                          .get()
+                          .then((QuerySnapshot querySnapshot) {
+                        if (querySnapshot.docs.isNotEmpty) {
+                          String documentId = querySnapshot.docs.first.id; // Retrieve the document ID
+                          updateStaffDetailsByNameAndMobile(widget.name, widget.mobile, {
+                            'name': nameController.text,
+                            'designation': designationController.text,
+                            'specialization': specializationController.text,
+                            'experience': experienceController.text,
+                            'mobile': mobileController.text,
+                            'status': statusController.text,
+                            'about': aboutController.text,
+                          });
+                        } else {
+                          print('Document with name ${widget.name} and mobile ${widget.mobile} not found');
+                        }
+                      }).catchError((error) {
+                        print('Error getting document: $error');
+                      });
+                    },
+                    child: Text(
+                      'Save Changes',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.all(15), // Adjust padding as needed
+                      backgroundColor: Colors.purple,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close the popup
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.all(15), // Adjust padding as needed
+                      backgroundColor: Colors.purple,
+                    ),
+                    child: Text(
+                      'Close',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+  Widget _buildDesktopView() {
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.0),
@@ -172,14 +348,13 @@ class _StaffPopupState extends State<StaffPopup> {
                   Text(
                     'Edit Staff Details',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.blue.shade900,
                     ),
                   ),
-                  SizedBox(width: 20,),
                   IconButton(
-                    icon: Icon(Icons.edit,size: 30,),
+                    icon: Icon(Icons.edit, size: 25),
                     onPressed: () {
                       setState(() {
                         isEditing = true; // Enable editing
@@ -239,31 +414,31 @@ class _StaffPopupState extends State<StaffPopup> {
                           decoration: InputDecoration(labelText: 'Name'),
                           enabled: isEditing, // Enable/disable based on editing state
                         ),
-                        SizedBox(height: 15,),
+                        SizedBox(height: 15),
                         TextFormField(
                           controller: designationController,
                           decoration: InputDecoration(labelText: 'Designation'),
                           enabled: isEditing,
                         ),
-                        SizedBox(height: 15,),
+                        SizedBox(height: 15),
                         TextFormField(
                           controller: specializationController,
                           decoration: InputDecoration(labelText: 'Specialization'),
                           enabled: isEditing && widget.designation != 'Admin',
                         ),
-                        SizedBox(height: 15,),
+                        SizedBox(height: 15),
                         TextFormField(
                           controller: experienceController,
                           decoration: InputDecoration(labelText: 'Experience'),
                           enabled: isEditing,
                         ),
-                        SizedBox(height: 15,),
+                        SizedBox(height: 15),
                         TextFormField(
                           controller: mobileController,
                           decoration: InputDecoration(labelText: 'Mobile'),
                           enabled: isEditing,
                         ),
-                        SizedBox(height: 15,),
+                        SizedBox(height: 15),
                         TextFormField(
                           controller: statusController,
                           decoration: InputDecoration(labelText: 'Status'),
@@ -272,6 +447,7 @@ class _StaffPopupState extends State<StaffPopup> {
 
                         SizedBox(height: 16),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             ElevatedButton(
                               onPressed: () {
@@ -304,24 +480,25 @@ class _StaffPopupState extends State<StaffPopup> {
                                 style: TextStyle(color: Colors.white),
                               ),
                               style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.all(15), // Adjust padding as needed
+                                fixedSize: Size(135, 30),
                                 backgroundColor: Colors.purple,
                               ),
                             ),
-
-                            SizedBox(width: 10),
-                            Align(
-                              alignment: Alignment.center,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(); // Close the popup
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.purple,),
-                                child: Text('Close', style: TextStyle(
-                                    color: Colors.white),
-                                ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(); // Close the popup
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.all(15), // Adjust padding as needed
+                                fixedSize: Size(135, 30),
+                                backgroundColor: Colors.purple,
                               ),
-                            )
+                              child: Text(
+                                'Close',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -333,6 +510,19 @@ class _StaffPopupState extends State<StaffPopup> {
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        if (constraints.maxWidth < 600) {
+          return _buildMobileView();
+        } else {
+          return _buildDesktopView();
+        }
+      },
     );
   }
 }

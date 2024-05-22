@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:manage_staff/staffpopupp.dart';
-
 import 'addstaffform.dart';
 
 class StaffTable extends StatelessWidget {
@@ -45,10 +44,15 @@ class StaffTable extends StatelessWidget {
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
-                    // Navigate to the add staff form when button is clicked
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => StaffDetailsForm()),
+                    // Show the add staff form as a popup dialog when button is clicked
+                    showDialog(
+                      context: context,
+                      builder: (context) => Dialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: StaffDetailsForm(),
+                      ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -63,8 +67,6 @@ class StaffTable extends StatelessWidget {
               ],
             ),
           ),
-
-
           Expanded(
             child: Center(
               child: LayoutBuilder(
@@ -99,73 +101,134 @@ class StaffTable extends StatelessWidget {
 
         List<QueryDocumentSnapshot> staffDocs = snapshot.data!.docs;
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            dataRowColor: MaterialStateColor.resolveWith((states) => Colors.white),
-            dividerThickness: 1.0,
-            columnSpacing: 60,
-            dataRowHeight: 60,
-            columns: [
-              DataColumn(label: Text('Image', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('Designation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('Specialization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('Experience', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('Mobile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('About', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-              DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-            ],
-            rows: staffDocs.asMap().entries.map((entry) {
-              // Get a map representation of the document data
-              Map<String, dynamic> data = entry.value.data() as Map<String, dynamic>;
+        return FutureBuilder<QuerySnapshot>(
+          future: FirebaseFirestore.instance.collection('designation').get(),
+          builder: (context, designationSnapshot) {
+            if (designationSnapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
 
-              return DataRow(
-                cells: [
-                  DataCell(
-                    // Check if 'image' exists and is not null
-                    GestureDetector(
-                      onTap: () {
-                        // Show the details popup when the row is clicked
-                        showDialog(
-                          context: context,
-                          builder: (context) => StaffPopup(
-                            image: data['image'] ?? '',
-                            name: data['name'] ?? '',
-                            designation: data['designation'] ?? '',
-                            specialization: data['specialization'] ?? '',
-                            experience: data['experience'] ?? '',
-                            mobile: data['mobile'] ?? '',
-                            about: data['about'] ?? '',
-                            status: data['status'] ?? '',
+            if (designationSnapshot.hasError) {
+              return Center(child: Text('Error: ${designationSnapshot.error}'));
+            }
+
+            // Map designation IDs to their corresponding data
+            Map<String, dynamic> designationData = {};
+            designationSnapshot.data!.docs.forEach((doc) {
+              designationData[doc.id] = doc.data();
+            });
+
+            return SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal, // Enable horizontal scrolling
+                child: DataTable(
+                  dataRowColor: MaterialStateColor.resolveWith((states) => Colors.white),
+                  dividerThickness: 1.0,
+                  columnSpacing: 60,
+                  dataRowHeight: 60,
+                  columns: [
+                    DataColumn(label: Text('Image', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Designation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Assigned Designation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Specialization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Experience', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Mobile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('About', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                    DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                  ],
+                  rows: staffDocs.map((doc) {
+                    Map<String, dynamic> data = doc.data() as Map<String, dynamic>; // Cast document data to Map<String, dynamic>
+                
+                    String assignedDesignation = '';
+                
+                    if (data.containsKey('designation')) {
+                      String designationId = data['designation']; // Get designation ID from staff data
+                      if (designationData.containsKey(designationId)) {
+                        // Check if designation data exists for this ID
+                        var designation = designationData[designationId];
+                        assignedDesignation = designation['designation'] ?? 'Unknown Designation'; // Assuming 'designation' is the field for designation
+                      }
+                    }
+                
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => StaffPopup(
+                                  image: data['image'] ?? '',
+                                  name: data['name'] ?? '',
+                                  designation: data['designation'] ?? '',
+                                  specialization: data['specialization'] ?? '',
+                                  experience: data['experience'] ?? '',
+                                  mobile: data['mobile'] ?? '',
+                                  about: data['about'] ?? '',
+                                  status: data['status'] ?? '',
+                                ),
+                              );
+                            },
+                            child: data['image'] != null
+                                ? Image.network(
+                              data['image'],
+                              width: 80,
+                              height: 50,
+                              fit: BoxFit.cover,
+                            )
+                                : SizedBox(),
                           ),
-                        );
-                      },
-                      child: data['image'] != null
-                          ? Image.network(
-                        data['image'],
-                        width: 80,
-                        height: 50,
-                        fit: BoxFit.cover,
-                      )
-                          : SizedBox(),
-                    ), // Placeholder if image URL is null
-                  ),
-                  DataCell(Text(data['name'] ?? '')),
-                  DataCell(Text(data.containsKey('designation') ? data['designation'] : '')),
-                  DataCell(Text(data['specialization'] ?? '')),
-                  DataCell(Text(data['experience'] ?? '')),
-                  DataCell(Text(data['mobile'] ?? '')),
-                  DataCell(Text(data['about'] ?? '')),
-                  DataCell(Text(data['status'] ?? '')),
-                ],
-              );
-            }).toList(),
-          ),
+                        ),
+                        DataCell(Text(data['name'] ?? '')),
+                        DataCell(Text(data.containsKey('designation') ? data['designation'] : '')),
+                        DataCell(
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                Radio<String>(
+                                  value: 'Admin',
+                                  groupValue: assignedDesignation,
+                                  onChanged: (value) {
+                                    // Update the assigned designation when radio button is selected
+                                    // You can implement the logic to update Firestore here
+                                  },
+                                ),
+                                Text('Admin'),
+                                Radio<String>(
+                                  value: 'Doctor',
+                                  groupValue: assignedDesignation,
+                                  onChanged: (value) {
+                                    // Update the assigned designation when radio button is selected
+                                    // You can implement the logic to update Firestore here
+                                  },
+                                ),
+                                Text('Doctor'),
+                              ],
+                            ),
+                          ),
+                        ),
+                
+                        DataCell(Text(data['specialization'] ?? '')),
+                        DataCell(Text(data['experience'] ?? '')),
+                        DataCell(Text(data['mobile'] ?? '')),
+                        DataCell(Text(data['about'] ?? '')),
+                        DataCell(Text(data['status'] ?? '')),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
+
+
 
   Widget _buildMobileDataTable() {
     return StreamBuilder<QuerySnapshot>(
@@ -235,7 +298,7 @@ class StaffTable extends StatelessWidget {
 
 void main() {
   runApp(MaterialApp(
-    title: 'Staff Table Example',
-    home: StaffTable(),
-  ));
+      title: 'Staff Table Example',
+      home: StaffTable(),
+      ));
 }
